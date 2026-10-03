@@ -73,21 +73,6 @@ on:
         required: false
         default: true
         type: boolean
-      run_weaver_patch:
-        description: 'Step: Apply weaver patch'
-        required: false
-        default: true
-        type: boolean
-      run_apex_patch:
-        description: 'Step: Apply apex patch'
-        required: false
-        default: true
-        type: boolean
-      run_theme_patch:
-        description: 'Step: Apply theme patch'
-        required: false
-        default: true
-        type: boolean
       run_drop_sync:
         description: 'Step: Drop sync metadata'
         required: false
@@ -285,16 +270,6 @@ jobs:
           git -C "$sync_dir" checkout --detach "$ORANGEFOX_SYNC_REVISION"
           test "$(git -C "$sync_dir" rev-parse HEAD)" = "$ORANGEFOX_SYNC_REVISION"
 
-          vold_patch="$sync_dir/patches/patch-vold-fox_14.1.diff"
-          test "$(sha256sum "$vold_patch" | awk '{print $1}')" = \
-            "29b4b0b387c3185a3dcc69f141a3c84969510547d13ed2de71eefa8423c57778"
-          if git -C "$ORANGEFOX_TOP/system/vold" apply --reverse --check "$vold_patch" 2>/dev/null; then
-            echo "OrangeFox system/vold patch is already applied"
-          else
-            git -C "$ORANGEFOX_TOP/system/vold" apply --check "$vold_patch"
-            git -C "$ORANGEFOX_TOP/system/vold" apply "$vold_patch"
-          fi
-
           boardconfig="$ORANGEFOX_TOP/vendor/twrp/config/BoardConfigSoong.mk"
           grep -qx 'include bootable/recovery/orangefox_soong.mk' "$boardconfig" || \
             sed -i '/SOONG_CONFIG_NAMESPACES += twrpVarsPlugin/i include bootable/recovery/orangefox_soong.mk' \
@@ -319,30 +294,6 @@ jobs:
           set -euo pipefail
           "$ORANGEFOX_TOP/device/xiaomi/klee/tools/apply-orangefox-patches.sh" \
             "$ORANGEFOX_TOP"
-
-      - name: Apply weaver patch
-        if: ${{ inputs.run_weaver_patch != false }}
-        shell: bash
-        run: |
-          cp "$ORANGEFOX_TOP"/device/xiaomi/klee/patches/orangefox_weaver_fallback.patch "$ORANGEFOX_TOP"/system/vold
-          cd "$ORANGEFOX_TOP"/system/vold
-          patch -p1 < orangefox_weaver_fallback.patch
-
-      - name: Apply apex patch
-        if: ${{ inputs.run_apex_patch != false }}
-        shell: bash
-        run: |
-          cp "$ORANGEFOX_TOP"/device/xiaomi/klee/patches/orangefox_apex_fallback.patch "$ORANGEFOX_TOP"/bootable/recovery
-          cd "$ORANGEFOX_TOP"/bootable/recovery
-          patch -p1 < orangefox_apex_fallback.patch
-
-      - name: Apply theme patch
-        if: ${{ inputs.run_theme_patch != false }}
-        shell: bash
-        run: |
-          cp "$ORANGEFOX_TOP"/device/xiaomi/klee/patches/orangefox_theme_custom.patch "$ORANGEFOX_TOP"/bootable/recovery
-          cd "$ORANGEFOX_TOP"/bootable/recovery
-          patch -p1 < orangefox_theme_custom.patch
 
       - name: Drop sync metadata
         if: ${{ inputs.run_drop_sync != false }}
