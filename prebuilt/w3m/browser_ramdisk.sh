@@ -32,4 +32,25 @@ if [ ! -f "$WORK/bookmark.html" ]; then
 EOF
 fi
 
+# Halaman sambutan - selalu diregenerasi (bukan data user)
+cat > "$WORK/welcome.html" << 'EOF'
+<title>Welcome - w3m recovery</title>
+<h1>w3m di recovery (mode RAM)</h1>
+<p>Workspace: /tmp/w3m (tmpfs) - Profile: /sdcard/.browser_profile</p>
+<h2>Tombol penting</h2>
+<ul>
+<li><b>o</b> - buka URL/path (contoh: o file:///sdcard/)</li>
+<li><b>v</b> - bookmark</li>
+<li><b>b</b> - back</li>
+<li><b>h</b> - bantuan</li>
+<li><b>q</b> - keluar (profile otomatis tersimpan)</li>
+</ul>
+<h2>Coba</h2>
+<ul>
+<li><a href="file:///sdcard/">Isi /sdcard</a></li>
+<li><a href="file:///tmp/w3m/bookmark.html">Bookmark</a></li>
+</ul>
+<p><i>Mode offline: aktifkan jaringan recovery (fase 2) buat browsing internet.</i></p>
+EOF
+
 echo "browser: workspace siap di $WORK (RAM)"

@@ -31,16 +31,23 @@ export TERMINFO="/system/usr/share/terminfo"
 export SSL_CERT_FILE="/system/etc/w3m/cert.pem"
 export SSL_CERT_DIR=""
 
-# Cek jaringan (info saja, bukan fatal)
-if ! ip route 2>/dev/null | grep default >/dev/null 2>&1; then
-    echo "browser: PERINGATAN - tidak ada route default (jaringan offline)."
-    echo "browser: Untuk online, WiFi/USB network recovery harus aktif dulu."
+# Cek jaringan (offline-safe)
+NET=0
+if ip route 2>/dev/null | grep default >/dev/null 2>&1; then
+    NET=1
+else
+    echo "browser: mode OFFLINE (tidak ada route jaringan)."
+    echo "browser: Internet butuh WiFi/USB network recovery (fase 2)."
     echo ""
 fi
 
-# Default URL kalo user nggak kasih apa-apa
+# Default halaman: online -> search engine, offline -> halaman sambutan lokal
 if [ $# -eq 0 ]; then
-    set -- https://duckduckgo.com/
+    if [ "$NET" -eq 1 ]; then
+        set -- https://duckduckgo.com/
+    else
+        set -- "file:///tmp/w3m/welcome.html"
+    fi
 fi
 
 /system/bin/w3m -config "$CFG" -bookmark "$WORK/bookmark.html" "$@"
