@@ -134,18 +134,22 @@ if [ "$SWAP_KB" -lt $((8 * 1024 * 1024)) ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Isolated git config (file:// manifest + flaky-network resilience, like CI)
+# Isolated git config (file:// manifest + flaky-network resilience, like CI).
+# Rewritten every run: GIT_CONFIG_GLOBAL replaces the user's ~/.gitconfig
+# entirely, so this file MUST carry a committer identity or repo init dies
+# with "Committer identity unknown".
 # ---------------------------------------------------------------------------
 GITCFG="$HOME/.orangefox-ci-gitconfig"
-if [ ! -f "$GITCFG" ]; then
-    cat > "$GITCFG" <<'EOF'
+cat > "$GITCFG" <<'EOF'
 [protocol "file"]
 	allow = always
 [http]
 	lowSpeedLimit = 1
 	lowSpeedTime = 600
+[user]
+	name = KazeTheLight
+	email = dianpermadib@gmail.com
 EOF
-fi
 export GIT_CONFIG_GLOBAL="$GITCFG"
 
 # ---------------------------------------------------------------------------
