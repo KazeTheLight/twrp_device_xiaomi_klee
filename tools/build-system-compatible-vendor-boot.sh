@@ -20,6 +20,7 @@ work_dir="$(mktemp -d "${TMPDIR:-/tmp}/klee-vendor-boot.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
 
 recovery_cpio="${work_dir}/recovery.cpio"
+recovery_lz4_better="${work_dir}/recovery.cpio.recompressed.lz4"
 platform_cpio="${work_dir}/platform.cpio"
 platform_root="${work_dir}/platform-root"
 platform_pruned_cpio="${work_dir}/platform-pruned.cpio"
@@ -30,6 +31,21 @@ patched_dtb="${work_dir}/mt6899-klee-no-usb-offload.dtb"
 python3 "$DTB_PATCHER" --input "$STOCK_DTB" --output "$patched_dtb"
 "$LZ4" -d -f "$RECOVERY_LZ4" "$recovery_cpio" >/dev/null
 "$LZ4" -d -f "$STOCK_RAMDISK" "$platform_cpio" >/dev/null
+
+# Recompress the recovery fragment at max lz4 level (build may have used a
+# cheaper setting). Keep whichever output is smaller, preserving the lz4
+# variant (legacy vs frame, via magic bytes) of the original file so the
+# kernel decompresses it exactly as before.
+recovery_fragment="$RECOVERY_LZ4"
+orig_magic="$(od -An -tx1 -N4 "$RECOVERY_LZ4" | tr -d ' \n')"
+lz4_flags="-12 --favor-decSpeed"
+if [ "$orig_magic" = "02214c18" ]; then
+    lz4_flags="-l -12 --favor-decSpeed"
+fi
+if "$LZ4" $lz4_flags -f "$recovery_cpio" "$recovery_lz4_better" >/dev/null 2>&1 &&
+    [ "$(stat -c %s "$recovery_lz4_better")" -lt "$(stat -c %s "$RECOVERY_LZ4")" ]; then
+    recovery_fragment="$recovery_lz4_better"
+fi
 
 mkdir -p "$platform_root"
 (
@@ -55,7 +71,7 @@ VENDOR_BOOT_PARTITION_SIZE=67108864
     --vendor_ramdisk "$platform_pruned_lz4" \
     --ramdisk_type RECOVERY \
     --ramdisk_name recovery \
-    --vendor_ramdisk_fragment "$RECOVERY_LZ4" \
+    --vendor_ramdisk_fragment "$recovery_fragment" \
     --vendor_boot "$unsigned_image"
 
 fingerprint="$(cat "${PRODUCT_OUT}/build_fingerprint.txt")"
