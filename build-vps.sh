@@ -5,13 +5,17 @@
 #   ./build-vps.sh              # sync sources if missing, then build (incremental on reruns)
 #   ./build-vps.sh --sync-only  # prepare sources only, no build
 #   ./build-vps.sh --fresh      # wipe synced sources, re-sync from scratch, build
+#   ./build-vps.sh --skip-deps  # do not require root for missing apt packages
+#
+# Root is only used for one-time apt package install (+ optional swap creation).
+# No root on your account? Run the printed apt-get command once via your
+# provider's root console, then rerun this script as your normal user.
 #
 # Tunables (env):
 #   ORANGEFOX_TOP      source tree location (default: $HOME/fox_14.1)
 #   ORANGEFOX_OUT_DIR  where the final image lands (default: $HOME/orangefox-klee-out)
 #
-# First run needs sudo (apt packages + swap). Rebuilds are incremental:
-# the synced source tree is reused unless --fresh is passed.
+# Rebuilds are incremental: the synced source tree is reused unless --fresh is passed.
 set -euo pipefail
 
 DEVICE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -22,10 +26,12 @@ ORANGEFOX_SYNC_REVISION='11e4406b2bd1de939a26b6bfbad7e371cc3b1fa7'
 
 FRESH=0
 SYNC_ONLY=0
+SKIP_DEPS=0
 for arg in "$@"; do
     case "$arg" in
         --fresh) FRESH=1 ;;
         --sync-only) SYNC_ONLY=1 ;;
+        --skip-deps) SKIP_DEPS=1 ;;
         *) echo "unknown arg: $arg" >&2; exit 2 ;;
     esac
 done
@@ -51,10 +57,14 @@ elif [ "$DISK_GIB" -lt 65 ]; then
     echo "warning: disk is tight (${DISK_GIB}G free); build may struggle near the end"
 fi
 
+# Root is optional: used only for one-time package install (+ optional swap).
 SUDO=""
-if [ "$(id -u)" -ne 0 ]; then
-    command -v sudo >/dev/null || { echo "error: need root or sudo" >&2; exit 1; }
+HAVE_ROOT=0
+if [ "$(id -u)" -eq 0 ]; then
+    HAVE_ROOT=1
+elif command -v sudo >/dev/null && sudo -n true 2>/dev/null; then
     SUDO="sudo"
+    HAVE_ROOT=1
 fi
 
 # ---------------------------------------------------------------------------
@@ -73,9 +83,26 @@ for p in "${PKGS[@]}"; do
     dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p")
 done
 if [ "${#missing[@]}" -gt 0 ]; then
-    echo "installing packages: ${missing[*]}"
-    $SUDO apt-get update
-    $SUDO apt-get install -y --no-install-recommends "${missing[@]}"
+    if [ "$HAVE_ROOT" -eq 1 ]; then
+        echo "installing packages: ${missing[*]}"
+        $SUDO apt-get update
+        $SUDO apt-get install -y --no-install-recommends "${missing[@]}"
+    elif [ "$SKIP_DEPS" -eq 1 ]; then
+        echo "warning: ${#missing[@]} packages missing, continuing anyway (--skip-deps)"
+    else
+        {
+            echo "error: ${#missing[@]} build packages are missing and no root is available."
+            echo
+            echo "Run this ONCE as root (provider console / root login), then rerun this script:"
+            echo
+            echo "  apt-get update && apt-get install -y --no-install-recommends \\"
+            for p in "${missing[@]}"; do echo "    $p \\"; done
+            echo "    "
+            echo
+            echo "Or rerun with --skip-deps if you know these are already provided another way."
+        } >&2
+        exit 1
+    fi
 fi
 if command -v javac >/dev/null; then
     JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
@@ -98,8 +125,12 @@ fi
 # Swap guard (build-lowmem expects some breathing room)
 # ---------------------------------------------------------------------------
 if [ "$SWAP_KB" -lt $((8 * 1024 * 1024)) ]; then
-    echo "creating swap via .github/scripts/setup-swap.sh"
-    $SUDO bash "$DEVICE_DIR/.github/scripts/setup-swap.sh"
+    if [ "$HAVE_ROOT" -eq 1 ]; then
+        echo "creating swap via .github/scripts/setup-swap.sh"
+        $SUDO bash "$DEVICE_DIR/.github/scripts/setup-swap.sh"
+    else
+        echo "note: no swap and no root to create one - harmless with ${MEM_GIB}G RAM"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
