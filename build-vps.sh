@@ -161,13 +161,18 @@ if [ ! -f "$MANIFEST_SRC" ]; then
     exit 1
 fi
 
+# Sync is complete only when repo sync exits 0 (marker). Checking for
+# build/envsetup.sh alone is wrong: a partial sync creates it anyway and a
+# rerun would then skip the sync forever, leaving missing projects behind.
+SYNC_MARKER="$ORANGEFOX_TOP/.orangefox-sync-complete"
+
 if [ "$FRESH" -eq 1 ]; then
     echo "wiping $ORANGEFOX_TOP"
     rm -rf "$ORANGEFOX_TOP"
 fi
 
-if [ ! -f "$ORANGEFOX_TOP/build/envsetup.sh" ]; then
-    echo "syncing OrangeFox sources (shallow) -> $ORANGEFOX_TOP"
+if [ ! -d "$ORANGEFOX_TOP/.repo" ]; then
+    echo "initializing repo (shallow) -> $ORANGEFOX_TOP"
     MANIFEST_REPO="$HOME/.orangefox-manifest"
     rm -rf "$MANIFEST_REPO"
     mkdir -p "$MANIFEST_REPO"
@@ -181,12 +186,38 @@ if [ ! -f "$ORANGEFOX_TOP/build/envsetup.sh" ]; then
     mkdir -p "$ORANGEFOX_TOP"
     cd "$ORANGEFOX_TOP"
     repo init --depth=1 -u "file://$MANIFEST_REPO" -b main -m default.xml
+fi
+
+if [ ! -f "$SYNC_MARKER" ]; then
+    echo "syncing OrangeFox sources (shallow) -> $ORANGEFOX_TOP"
+    cd "$ORANGEFOX_TOP"
     SYNC_JOBS="$CORES"
     [ "$SYNC_JOBS" -gt 8 ] && SYNC_JOBS=8
-    repo sync -c -j"$SYNC_JOBS" --retry-fetches=3 \
-        --no-clone-bundle --no-tags --optimized-fetch
+
+    SYNC_ATTEMPT=1
+    SYNC_MAX=3
+    while true; do
+        if [ "$SYNC_ATTEMPT" -ge "$SYNC_MAX" ]; then
+            # last resort exactly as repo suggests: stop at first error
+            if repo sync -j1 --fail-fast; then
+                break
+            fi
+        elif repo sync -c -j"$SYNC_JOBS" --retry-fetches=3 \
+            --no-clone-bundle --no-tags --optimized-fetch; then
+            break
+        fi
+        SYNC_ATTEMPT=$((SYNC_ATTEMPT + 1))
+        if [ "$SYNC_ATTEMPT" -gt "$SYNC_MAX" ]; then
+            echo "error: repo sync failed after $SYNC_MAX attempts" >&2
+            echo "  re-run ./build-vps.sh to retry (only failing projects refetch)" >&2
+            exit 1
+        fi
+        echo "repo sync failed (attempt $((SYNC_ATTEMPT - 1))/$SYNC_MAX), retrying..." >&2
+        sleep 5
+    done
+    touch "$SYNC_MARKER"
 else
-    echo "reusing synced sources at $ORANGEFOX_TOP"
+    echo "reusing synced sources at $ORANGEFOX_TOP (sync marker present)"
 fi
 
 if [ "$SYNC_ONLY" -eq 1 ]; then
