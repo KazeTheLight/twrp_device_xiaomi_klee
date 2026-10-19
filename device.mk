@@ -151,3 +151,23 @@ PRODUCT_COPY_FILES += \
     $(DEVICE_PATH)/proprietary/vendor/lib64/vendor.xiaomi.hardware.cpace-V1-ndk.so:recovery/root/vendor/lib64/vendor.xiaomi.hardware.cpace-V1-ndk.so \
     $(DEVICE_PATH)/proprietary/vendor/mitee/ta/8aaaf201-2460-0010-aabbccdd00000006.ta:recovery/root/vendor/mitee/ta/8aaaf201-2460-0010-aabbccdd00000006.ta \
     $(DEVICE_PATH)/proprietary/vendor/etc/vintf/manifest/android.hardware.cpace.xml:recovery/root/vendor/etc/vintf/manifest/android.hardware.cpace.xml
+
+# w3m text browser for recovery: runs from RAM (tmpfs), profile persisted at
+# /sdcard/.browser_profile (auto-saved on browser exit). Launch with:
+#   browser_start.sh [url]
+PRODUCT_COPY_FILES += \
+    $(DEVICE_PATH)/prebuilt/w3m/bin/w3m:recovery/root/system/bin/w3m \
+    $(DEVICE_PATH)/prebuilt/w3m/browser_start.sh:recovery/root/system/bin/browser_start.sh \
+    $(DEVICE_PATH)/prebuilt/w3m/browser_ramdisk.sh:recovery/root/system/bin/browser_ramdisk.sh \
+    $(DEVICE_PATH)/prebuilt/w3m/browser_save.sh:recovery/root/system/bin/browser_save.sh \
+    $(DEVICE_PATH)/prebuilt/w3m/lib/libncursesw.so.6:recovery/root/system/lib64/libncursesw.so.6 \
+    $(DEVICE_PATH)/prebuilt/w3m/lib/libcrypto.so.3:recovery/root/system/lib64/libcrypto.so.3 \
+    $(DEVICE_PATH)/prebuilt/w3m/lib/libssl.so.3:recovery/root/system/lib64/libssl.so.3 \
+    $(DEVICE_PATH)/prebuilt/w3m/lib/libgc.so:recovery/root/system/lib64/libgc.so \
+    $(DEVICE_PATH)/prebuilt/w3m/cert.pem:recovery/root/system/etc/w3m/cert.pem \
+    $(DEVICE_PATH)/prebuilt/w3m/terminfo/d/dumb:recovery/root/system/usr/share/terminfo/d/dumb \
+    $(DEVICE_PATH)/prebuilt/w3m/terminfo/l/linux:recovery/root/system/usr/share/terminfo/l/linux \
+    $(DEVICE_PATH)/prebuilt/w3m/terminfo/s/screen:recovery/root/system/usr/share/terminfo/s/screen \
+    $(DEVICE_PATH)/prebuilt/w3m/terminfo/v/vt100:recovery/root/system/usr/share/terminfo/v/vt100 \
+    $(DEVICE_PATH)/prebuilt/w3m/terminfo/x/xterm:recovery/root/system/usr/share/terminfo/x/xterm \
+    $(DEVICE_PATH)/prebuilt/w3m/terminfo/x/xterm-256color:recovery/root/system/usr/share/terminfo/x/xterm-256color
